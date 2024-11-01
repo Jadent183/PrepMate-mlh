@@ -1,0 +1,41 @@
+﻿@inject IUserService UserService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+
+<MudCard>
+    <MudCardContent>
+        <MudText Typo="Typo.h5">@Recipe.Name</MudText>
+        <!-- Other recipe details -->
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveRecipe">Save Recipe</MudButton>
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter]
+    public Recipe Recipe { get; set; }
+
+    private async Task SaveRecipe()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var result = await UserService.AddRecipeForUserAsync(user.Identity.Name, Recipe);
+            if (result)
+            {
+                Snackbar.Add("Recipe saved successfully!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to save recipe. Please try again.", Severity.Error);
+            }
+        }
+        else
+        {
+            Snackbar.Add("Please log in to save recipes.", Severity.Warning);
+        }
+    }
+}

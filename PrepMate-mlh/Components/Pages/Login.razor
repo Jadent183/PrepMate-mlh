@@ -1,0 +1,71 @@
+﻿@page "/login"
+@using PrepMate_mlh
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center mud-height-full">
+    <MudPaper Elevation="3" Class="pa-8" Width="100%" MaxWidth="500px">
+        <MudText Typo="Typo.h4" GutterBottom="true" Align="Align.Center">Login to PrepMate</MudText>
+        <MudTextField @bind-Value="email" Label="Email" Variant="Variant.Outlined" Class="my-4"></MudTextField>
+        <MudTextField @bind-Value="password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="my-4"></MudTextField>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="HandleLogin" Class="mt-4">Login</MudButton>
+        <MudText Align="Align.Center" Class="mt-4">
+            Don't have an account? <MudLink Href="/register">Register here</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+
+@code {
+    private string email = "";
+    private string password = "";
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+            Snackbar.Add("Please enter both email and password", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var user = await UserService.AuthenticateUserAsync(email, password);
+            if (user != null)
+            {
+                await UserService.SetCurrentUserAsync(user);
+                ((CustomAuthenticationStateProvider)AuthStateProvider).NotifyAuthenticationStateChanged();
+                Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+                Snackbar.Add("Login successful!", Severity.Success);
+                NavigationManager.NavigateTo("/");
+            }
+            else
+            {
+                Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+                Snackbar.Add("Invalid email or password", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+            Snackbar.Add($"An error occurred: {ex.Message}", Severity.Error);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var currentUser = await UserService.GetCurrentUserAsync();
+            if (currentUser != null)
+            {
+                // User is already logged in, redirect to home page
+                NavigationManager.NavigateTo("/");
+            }
+        }
+    }
+}

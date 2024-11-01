@@ -1,0 +1,86 @@
+﻿@using PrepMate_mlh.Components.Pages
+@inject IDialogService Dialog
+@inject RecipeService RecipeService
+
+<MudCard Class="custom-card" Elevation="3" @onclick="@(() => OpenDialogAsync(_fullScreen))">
+    <MudCardHeader>
+        <CardHeaderContent>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudIconButton Icon="@(IsRecipeSaved ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
+                           Color="@(IsRecipeSaved ? Color.Secondary : Color.Default)"
+                           OnClick="ToggleSaveRecipe" />
+        </CardHeaderActions>
+    </MudCardHeader>
+    <MudCardContent Class="d-flex flex-column justify-space-between">
+        <MudText Typo="Typo.h6" Align="Align.Center">@CurrentRecipe.Name</MudText>
+    </MudCardContent>
+</MudCard>
+
+<style>
+    .custom-card {
+        min-width: 280px;
+        max-width: 280px;
+        height: 320px;
+        background: rgb(217,131,182);
+        background: linear-gradient(54deg, rgba(217,131,182,1) 0%, rgba(241,173,54,1) 100%);
+        border-radius: 60px;
+        box-shadow: 0 10px 30px rgba(1, 1, 1, 0.3);
+        transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
+
+        .custom-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(1, 1, 1, 0.4);
+        }
+</style>
+
+
+@code {
+    [Parameter]
+    public Recipe CurrentRecipe { get; set; } 
+
+    [Parameter]
+    public EventCallback OnRecipeRemoved { get; set; }
+
+    private bool IsRecipeSaved { get; set; }
+    private readonly DialogOptions _fullScreen = new() { FullScreen = true, CloseButton = true };
+
+    private async Task OpenDialogAsync(DialogOptions options)
+    {
+        var parameters = new DialogParameters
+        {
+            { "CurrentRecipe", CurrentRecipe }
+        };
+
+        var dialog = await Dialog.ShowAsync<RecipePage>(null, parameters, options);
+        var result = await dialog.Result;
+    }
+
+    private async Task ToggleSaveRecipe()
+    {
+        bool success;
+        if (IsRecipeSaved)
+        {
+            success = await RecipeService.RemoveRecipe(CurrentRecipe);
+            if (success)
+            {
+                await OnRecipeRemoved.InvokeAsync();
+            }
+        }
+        else
+        {
+            success = await RecipeService.SaveRecipe(CurrentRecipe);
+        }
+
+        if (success)
+        {
+            IsRecipeSaved = !IsRecipeSaved;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        IsRecipeSaved = await RecipeService.CheckIfRecipeIsSaved(CurrentRecipe);
+    }
+}

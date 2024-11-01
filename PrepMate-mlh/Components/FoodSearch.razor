@@ -1,0 +1,183 @@
+﻿@page "/foodsearch"
+@inject IHttpClientFactory HttpClientFactory
+
+<MudPaper Class="d-flex flex-column flex-grow-1 gap-4" Elevation="0" Style="background-color: #FEF2F2">
+
+
+    <div class="search-container">
+
+        <MudAutocomplete T="string"
+                         Label="Search Ingredients"
+                         Value="@searchTerm"
+                         ValueChanged="@(s => OnSearchTermChanged(s))"
+                         SearchFunc="@SearchFood"
+                         ResetValueOnEmptyText="true"
+                         CoerceText="true"
+                         AdornmentIcon="@Icons.Material.Filled.AutoAwesome"
+                         AdornmentColor="Color.Error"
+                         OnClearButtonClick="@(() => ClearSelectedFoods())"
+                         Clearable="true"
+                         MaxItems="null"
+                         Variant="Variant.Outlined"
+                         Dense="true"
+                         Class="search-input custom-autocomplete"/>
+
+
+    </div>
+
+    <div class="select-container">
+        <MudChipSet T="string" AllClosable OnClose="Closed" Class="custom-chip" Style="width: 60% !important; background-color: #FEF2F2">
+            @foreach (var food in selectedFoods)
+            {
+                <MudChip Text="@food" />
+            }
+        </MudChipSet>
+    </div>
+
+
+</MudPaper>
+
+
+
+
+<style>
+    .search-container {
+        display: flex;
+        width: 80%;
+        margin: 20px auto;
+        background-color: #E4C2C1;
+        border-radius: 35px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(1, 1, 1, 0.3);
+    }
+
+
+    .select-container {
+        width: 80%;
+        max-width: 600px;
+        margin: 20px auto;
+    }
+
+    .custom-chip {
+        width: 10% !important;
+
+        max-width: 500px;
+        margin: 5px auto;
+        background-color: #E4C2C1;
+
+
+    }
+
+        .custom-select ::deep .mud-input {
+            background-color: white;
+            border-radius: 5px;
+            border: 1px solid #E4C2C1;
+        }
+
+        .custom-select ::deep .mud-input-label {
+            color: #B6666F;
+        }
+
+        .custom-select ::deep .mud-input-slot {
+            min-height: 40px;
+        }
+
+    .search-input {
+        flex-grow: 1;
+        border: none;
+        padding: 10px 15px;
+        font-size: 16px;
+        background-color: #E4C2C1;
+        color: #E4C2C1;
+    }
+
+    .mud-input-control > .mud-input-control-input-container > .mud-input-label-outlined.mud-input-label-inputcontrol
+    {
+        background-color: #E4C2C1;
+    }
+
+        .search-input::placeholder {
+            color: #E4C2C1;
+        }
+
+        .search-input:focus {
+            outline: none;
+        }
+
+    .search-button {
+        background-color: #F53163;
+        border: none;
+        color: #FEF2F2;
+        padding: 10px 15px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        .search-button:hover {
+            background-color: #D1A080;
+        }
+</style>
+
+
+
+
+
+
+@code {
+    [Parameter] public EventCallback<HashSet<string>> SelectedFoodsChanged { get; set; } // Event to notify the parent
+    private string searchTerm = "";
+    private HashSet<string> selectedFoods = new HashSet<string>();
+    public void Closed(MudChip<string> chip)
+    {
+        selectedFoods.Remove(chip.Text);
+        SelectedFoodsChanged.InvokeAsync(selectedFoods); // Notify the parent when a food is removed
+    }
+    private async Task<IEnumerable<string>> SearchFood(string value, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length < 3)
+            return Array.Empty<string>();
+        try
+        {
+            var searchResult = await NutritionixApi.SearchFoodAsync(value, HttpClientFactory, cancellationToken);
+            if (searchResult != null)
+            {
+                var foods = new List<string>();
+                if (searchResult.Common != null)
+                {
+                    foods.AddRange(searchResult.Common
+                        .Where(f => !string.IsNullOrWhiteSpace(f.FoodName))
+                        .Select(f => f.FoodName));
+                }
+                if (searchResult.Branded != null)
+                {
+                    foods.AddRange(searchResult.Branded
+                        .Where(f => !string.IsNullOrWhiteSpace(f.FoodName))
+                        .Select(f => f.FoodName));
+                }
+                return foods.Distinct().ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in SearchFood: {ex.Message}");
+        }
+        return Array.Empty<string>();
+    }
+    private void OnSearchTermChanged(string value)
+    {
+        searchTerm = value;
+        if (!string.IsNullOrWhiteSpace(value) && !selectedFoods.Contains(value))
+        {
+            selectedFoods.Add(value);
+            searchTerm = "";
+            SelectedFoodsChanged.InvokeAsync(selectedFoods);
+            StateHasChanged();
+        }
+    }
+    private void ClearSelectedFoods()
+    {
+        selectedFoods.Clear();
+        SelectedFoodsChanged.InvokeAsync(selectedFoods);
+        StateHasChanged();
+    }
+}

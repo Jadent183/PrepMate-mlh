@@ -1,0 +1,155 @@
+﻿@using MudBlazor
+@using MudBlazor.Charts
+
+<MudDialog>
+    <DialogContent>
+        @if (CurrentRecipe != null)
+        {
+            <MudContainer MaxWidth="MaxWidth.Large">
+                <MudText Typo="Typo.h2" Class="justify-content-center">@CurrentRecipe.Name</MudText>
+                @if (_loading)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" Style="margin-top: 80px" />
+                    <span class="ms-2">Loading...</span>
+                }
+                else if (AllNutritionInfo.Count > 0)
+                {
+
+                    <MudPaper Class="d-flex flex-row flex-grow-1 gap-6 justify-content-around" Elevation="0" MinWidth="600px" Style="margin-top: 80px">
+ 
+                        
+                        <MudPaper Class="d-flex flex-column flex-grow-1 gap-4" Elevation="0" Style="background-color: #E4C2C1" MaxWidth="300px">
+                            <MudText Typo="Typo.h5" Class="mt-2">Ingredients</MudText>
+                            @foreach (var ingredient in CurrentRecipe.Ingredients)
+                            {
+                                <MudText Typo="Typo.h6" Class="mt-2">• @ingredient.Name @ingredient.Portion</MudText>
+                            }
+                        </MudPaper> 
+
+
+                        <MudChart ChartType="ChartType.Pie"
+                                  InputData="GetChartData()"
+                                  @bind-SelectedIndex="Index"
+                                  InputLabels="@_labels"
+                                  Width="300px"
+                                  Height="300px"
+                                  ChartOptions="_chartOptions" />
+
+
+
+@*                         <MudPaper Class="mud-theme-secondary" Width="430px" Height="64px" Style="visibility: hidden"/>
+ *@
+
+                        <MudPaper Class="d-flex flex-column flex-grow-1 gap-4" Elevation="0" Style="background-color: #E4C2C1" MaxWidth="300px">
+                            <MudText Typo="Typo.h5" Class="mt-2">Nutrition Facts</MudText>
+
+                            <MudText Typo="Typo.h6" Class="mt-2">Servings: @CurrentRecipe.Servings</MudText>
+                            <MudText Typo="Typo.h6" Class="mt-2">Fat: @GetAllFat()?.ToString("F2")</MudText>
+                            <MudText Typo="Typo.h6" Class="mt-2">Carbs: @GetAllCarbs()?.ToString("F2")</MudText>
+                            <MudText Typo="Typo.h6" Class="mt-2">Protien: @GetAllProtein()?.ToString("F2")</MudText>
+                            <MudText Typo="Typo.h6" Class="mt-2">Sugar: @GetAllSugar()?.ToString("F2")</MudText>
+                            <MudText Typo="Typo.h6" Class="mt-2">Sodium: @GetAllSodium()?.ToString("F2")</MudText>
+
+                            <MudText Typo="Typo.h5" Class="mt-2">Total Calories: @GetAllCalories()?.ToString("F2")</MudText>
+                        </MudPaper>   
+                        
+
+                    </MudPaper>
+                     
+                }
+                else
+                {
+                    <MudText>No nutrition data available.</MudText>
+                }
+
+                <div  style="margin-top: 50px">
+
+                    @foreach(var instruction in CurrentRecipe.Instructions)
+                    {
+                        <MudText Typo="Typo.h6" Class="mt-2">@instruction</MudText>
+
+                    }
+                </div>
+
+
+
+                <MudPaper Class="d-flex flex-row flex-grow-1 gap-4 justify-content-around" Elevation="0" Style="background-color:#FEF2F2; margin-top: 50px">
+
+                    <MudText Typo="Typo.h6" Class="mt-2" style="color: #B6666F;">Prep Time: @CurrentRecipe.PrepTime</MudText>
+                    <MudText Typo="Typo.h6" Class="mt-2" style="color: #B6666F">Cook Time: @CurrentRecipe.CookTime</MudText>
+                    <MudText Typo="Typo.h6" Class="mt-2" style="color: #B6666F">Total Time: @CurrentRecipe.TotalTime</MudText>
+
+                </MudPaper>
+
+            </MudContainer>
+        }
+        else
+        {
+            <MudText>No recipe data available.</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Parameter] public Recipe CurrentRecipe { get; set; }
+
+    private int Index = -1;
+    private List<NutritionixAPICalls> AllNutritionInfo = new List<NutritionixAPICalls>();
+    private bool _loading = true;
+    private readonly string[] _labels = { "Fat", "Carbs", "Protein", "Sugar", "Sodium" };
+    private ChartOptions _chartOptions = new ChartOptions
+        {
+            ChartPalette = new[] { "#FF0081", "#2196F3", "#4CAF50", "#FF9800", "#9C27B0" },
+        };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetFullNutrition();
+    }
+
+    private async Task GetFullNutrition()
+    {
+        _loading = true;
+        AllNutritionInfo.Clear();
+
+        if (CurrentRecipe?.Ingredients?.Count > 0)
+        {
+            var tasks = CurrentRecipe.Ingredients
+                .Where(ingredient => !ingredient.Weight.Contains("as needed"))
+                .Select(ingredient => NutritionixApi.GetNutritionFactsAsync(ingredient.Name, ingredient.Weight));
+
+            var results = await Task.WhenAll(tasks);
+            AllNutritionInfo.AddRange(results.Where(result => result != null));
+        }
+
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private double[] GetChartData()
+    {
+        return new[]
+        {
+            GetAllFat() ?? 0,
+            GetAllCarbs() ?? 0,
+            GetAllProtein() ?? 0,
+            GetAllSugar() ?? 0,
+            GetAllSodium() ?? 0
+        };
+    }
+
+    private double? GetAllFat() => AllNutritionInfo.Sum(i => i.TotalFat);
+    private double? GetAllCarbs() => AllNutritionInfo.Sum(i => i.TotalCarbohydrate);
+    private double? GetAllProtein() => AllNutritionInfo.Sum(i => i.Protein);
+    private double? GetAllSugar() => AllNutritionInfo.Sum(i => i.Sugars);
+    private double? GetAllSodium() => AllNutritionInfo.Sum(i => i.Sodium);
+    private double? GetAllCalories() => AllNutritionInfo.Sum(i => i.Calories);
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,0 +1,63 @@
+﻿@page "/saved-recipes"
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+@using PrepMate_mlh.Components.RecipeCard
+
+<MudText Typo="Typo.h3" Class="mb-4">Saved Recipes</MudText>
+
+@if (savedRecipes == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (!savedRecipes.Any())
+{
+    <MudAlert Severity="Severity.Info">You haven't saved any recipes yet.</MudAlert>
+    <MudButton Color="Color.Primary" Variant="Variant.Filled" Class="mt-4" OnClick="@(() => NavigationManager.NavigateTo("/"))">
+        Explore Recipes
+    </MudButton>
+}
+else
+{
+    <MudPaper Class="d-flex flex-row flex-grow-1 gap-4 flex-wrap" Elevation="0" Style="background-color: #FEF2F2">
+        <MudPaper Class="mud-theme-primary" Width="64px" Height="64px" style="visibility: hidden"/>
+
+        @foreach (var recipe in savedRecipes)
+        {
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                <RecipeCard CurrentRecipe="recipe"/>
+            </MudItem>
+        }
+    </MudPaper>
+}
+
+@code {
+    private List<Recipe> savedRecipes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSavedRecipes();
+    }
+
+    private async Task LoadSavedRecipes()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            var userEmail = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                Snackbar.Add("Unable to retrieve user email", Severity.Error);
+                return;
+            }
+            savedRecipes = await UserService.GetSavedRecipesForUserAsync(userEmail);
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+
+}

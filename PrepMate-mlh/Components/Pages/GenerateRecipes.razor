@@ -1,0 +1,176 @@
+﻿@page "/generate-recipes"
+@inject OpenAIService OpenAIService
+@inject ISnackbar Snackbar
+@using PrepMate_mlh.Components.RecipeCard
+@using Microsoft.AspNetCore.Components.Web
+
+<h3>Generate Recipes</h3>
+
+
+<MudPaper Class="d-flex flex-row flex-nowrap gap-5 overflow-auto custom-scrollbar" Style="padding: 100px; padding-bottom: 0px; padding-top: 20px; color:#B6666F; background:#FEF2F2;" Elevation="0">
+
+    <FoodSearch SelectedFoodsChanged="OnSelectedFoodsChanged"/>
+
+</MudPaper>
+
+
+<MudSelect T="string" @bind-Value="category"
+           Label="Select Category"
+           Variant="Variant.Outlined"
+           Class="custom-select"
+           AnchorOrigin="Origin.BottomCenter">
+    <MudSelectItem Value="@("Breakfast")">Breakfast</MudSelectItem>
+    <MudSelectItem Value="@("Lunch")">Lunch</MudSelectItem>
+    <MudSelectItem Value="@("Dinner")">Dinner</MudSelectItem>
+    <MudSelectItem Value="@("Dessert")">Dessert</MudSelectItem>
+    <MudSelectItem Value="@("Mexican")">Mexican</MudSelectItem>
+    <MudSelectItem Value="@("Asian")">Asian</MudSelectItem>
+    <MudSelectItem Value="@("Indian")">Indian</MudSelectItem>
+    <MudSelectItem Value="@("American")">American</MudSelectItem>
+</MudSelect>
+
+<style>
+
+
+</style>
+
+
+
+<MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="GetRecipes" Disabled="@_loading" class="get-recipes-button" Style="background-color: #695193 !important;">
+    @if (_loading)
+    {
+        <span class="button-content">
+            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+        </span>
+    }
+    else
+    {
+        <span>Get Recipes</span>
+    }
+</MudButton>
+
+
+
+<MudPaper Class="d-flex flex-row flex-grow-1 gap-5" Elevation="0" Style="background-color: #FEF2F2; margin-top: 80px;">
+    <MudPaper Class="mud-theme-primary" Width="64px" Height="64px" style="visibility: hidden" />
+
+    @foreach (var recipe in Recipes.Recipes)
+    {
+        <RecipeCard CurrentRecipe="recipe"></RecipeCard>
+    }
+
+</MudPaper>
+
+<style>
+    .custom-select {
+        width: 40%;
+        max-width: 500px;
+        margin: 20px auto;
+        background-color: #E4C2C1;
+        border-radius: 0px;
+        box-shadow: 0 10px 30px rgba(1, 1, 1, 0.3);
+    }
+    .get-recipes-button {
+        display: block;
+        margin: 20px auto;
+        width: 200px; 
+        color: white !important;
+        border-radius: 20px;
+        padding: 15px 25px;
+        background-color: #695193 !important;
+        height: 54px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .button-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        white-space: nowrap;
+    }
+
+    .category-container {
+        display: flex;
+        max-width: 40% !important;
+        margin: 30px auto;
+        background-color: #E4C2C1;
+        border-radius: 35px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(1, 1, 1, 0.3);
+    }
+
+</style>
+
+
+
+
+@code {
+    private string category = "Breakfast";
+    private HashSet<string> parentSelectedFoods = new HashSet<string>();
+    private RecipeCollection Recipes { get; set; } = new RecipeCollection();
+    private bool _loading = false;
+
+
+
+    private string GetMultiSelectionText(List<string> selectedValues) // Function for filling the pre-input text in the ingredients bar
+    {
+        return $"Selected Ingredient{(selectedValues.Count > 1 ? "s" : "")}: {string.Join(", ", selectedValues.Select(x => x))}";
+    }
+
+    private void OnSelectedFoodsChanged(HashSet<string> selectedFoods) // Update the parent's selected foods based on the event callback from the child
+
+    {
+        parentSelectedFoods = selectedFoods;
+    }
+
+
+    private async Task GetRecipes() // Calls API
+    {
+
+        _loading = true;
+
+        try
+        {
+            if (parentSelectedFoods != null)
+            {
+                try
+                {
+                    string json = await OpenAIService.GenerateRecipe(FormatPromptString(parentSelectedFoods));
+                    Recipes = RecipeParser.ParseRecipes(json);
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+                    Snackbar.Add("Error while generating. Please try again", Severity.Error);
+                }
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string FormatPromptString(IEnumerable<string> ingredients)
+    {
+        string prompt = "Ingredients:";
+
+        // Format the prompt to follow this type "Ingredients: ingredient 1, ingredient 2, ..., ingredient n. Category: Category"
+        foreach (var ingredient in ingredients)
+        {
+            prompt += " " + ingredient + ",";
+        }
+
+
+        prompt = prompt.Remove(prompt.Length - 1); // Remove the last "," to replace with a period
+
+        // Pull the optional category from the category selection
+        prompt += ". Category: " + category;
+
+        return prompt;
+    }
+
+
+}

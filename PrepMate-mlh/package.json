@@ -1,0 +1,13 @@
+{
+  "name": "prepmate-mlh",
+  "version": "1.0.0",
+  "description": "PrepMate MLH project",
+  "scripts": {
+    "css:build": "npx tailwindcss -i ./wwwroot/app.css -o ./wwwroot/app.min.css --minify"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.27",
+    "tailwindcss": "^3.4.13"
+  }
+}

@@ -1,0 +1,63 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+<CascadingAuthenticationState>
+    <MudThemeProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
+    <MudPopoverProvider />
+
+
+    <MudLayout Style="@($"color:#B6666F; background:#FEF2F2")">
+        <MudAppBar Style="@($"color:#B6666F; background:#FEF2F2")" Elevation="1">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            <MudText Typo="Typo.h5" Class="ml-3">PrepMate</MudText>
+            <MudSpacer />
+            <AuthorizeView>
+                <Authorized>
+                    <MudText Class="mr-4">Welcome, @context.User.FindFirst(ClaimTypes.Name)?.Value</MudText>
+                    <MudButton Color="Color.Inherit" OnClick="HandleLogout">Logout</MudButton>
+                </Authorized>
+                <NotAuthorized>
+                    <MudButton Href="/login" Color="Color.Inherit">Login</MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
+        </MudAppBar>
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="1" Style="@($"color:#B6666F; background:#FEF2F2")">
+            <NavMenu />
+        </MudDrawer>
+        <MudMainContent>
+            @Body
+        </MudMainContent>   
+    </MudLayout>
+</CascadingAuthenticationState>
+
+<link href="css/app.min.css" rel="stylesheet" />
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task HandleLogout()
+    {
+        await UserService.ClearCurrentUserAsync();
+        ((CustomAuthenticationStateProvider)AuthStateProvider).NotifyAuthenticationStateChanged();
+        NavigationManager.NavigateTo("/");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Perform any JavaScript interop here if needed
+            StateHasChanged();
+        }
+    }
+}

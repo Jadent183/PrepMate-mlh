@@ -1,0 +1,50 @@
+﻿@page "/userprofile"
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<h3>User Profile</h3>
+
+<AuthorizeView>
+    <Authorized>
+        @if (user != null)
+        {
+            <p>Name: @user.Name</p>
+            <p>Email: @user.Email</p>
+            <h4>Saved Recipes</h4>
+            @if (user.SavedRecipes != null && user.SavedRecipes.Any())
+            {
+                <ul>
+                    @foreach (var recipe in user.SavedRecipes)
+                    {
+                        <li>@recipe.Name</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No saved recipes yet.</p>
+            }
+        }
+        else
+        {
+            <p>Loading user data...</p>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <p>You must be logged in to view this page.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private User user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userEmail = authState.User.Identity?.Name;
+        if (!string.IsNullOrEmpty(userEmail))
+        {
+            user = await UserService.GetUserAsync(userEmail);
+        }
+    }
+}
